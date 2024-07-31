@@ -1,6 +1,5 @@
 #include <iostream>
 #include <E:/Game 2048/incl/SDL.h>
-#include <E:/Game 2048/incl/SDL_timer.h>
 
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
