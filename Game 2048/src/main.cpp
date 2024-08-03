@@ -18,8 +18,7 @@ const int TILE_PADDING = 10;
 void initializeGrid(std::vector<std::vector<int>>& grid);
 void renderGrid(SDL_Renderer* renderer, const std::vector<std::vector<int>>& grid, std::unordered_map<int, SDL_Texture*>& tileTextures);
 void spawnTile(std::vector<std::vector<int>>& grid);
-bool moveTiles(std::vector<std::vector<int>>& grid, int direction);
-bool mergeTiles(std::vector<std::vector<int>>& grid, int direction);
+bool moveAndMergeTiles(std::vector<std::vector<int>>& grid, int direction);
 bool isGameOver(const std::vector<std::vector<int>>& grid);
 SDL_Texture* loadTexture(const std::string& path, SDL_Renderer* renderer);
 std::unordered_map<int, SDL_Texture*> loadTileTextures(SDL_Renderer* renderer);
@@ -66,26 +65,22 @@ int main(int argc, char* argv[]) {
                 quit = true;
             }
             else if (e.type == SDL_KEYDOWN) {
-                bool moved = false;
+                bool movedOrMerged = false;
                 switch (e.key.keysym.sym) {
                 case SDLK_UP:
-                    moved = moveTiles(grid, 0) || mergeTiles(grid, 0);
-                    moveTiles(grid, 0);
+                    movedOrMerged = moveAndMergeTiles(grid, 0);
                     break;
                 case SDLK_DOWN:
-                    moved = moveTiles(grid, 1) || mergeTiles(grid, 1);
-                    moveTiles(grid, 1);
+                    movedOrMerged = moveAndMergeTiles(grid, 1);
                     break;
                 case SDLK_LEFT:
-                    moved = moveTiles(grid, 2) || mergeTiles(grid, 2);
-                    moveTiles(grid, 2);
+                    movedOrMerged = moveAndMergeTiles(grid, 2);
                     break;
                 case SDLK_RIGHT:
-                    moved = moveTiles(grid, 3) || mergeTiles(grid, 3);
-                    moveTiles(grid, 3);
+                    movedOrMerged = moveAndMergeTiles(grid, 3);
                     break;
                 }
-                if (moved) {
+                if (movedOrMerged) {
                     spawnTile(grid);
                 }
             }
@@ -172,118 +167,58 @@ void spawnTile(std::vector<std::vector<int>>& grid) {
     grid[x][y] = (std::rand() % 10 == 0) ? 4 : 2;
 }
 
-bool moveTiles(std::vector<std::vector<int>>& grid, int direction) {
+bool moveAndMergeTiles(std::vector<std::vector<int>>& grid, int direction) {
     bool moved = false;
-    if (direction == 0) { // Up
-        for (int j = 0; j < GRID_SIZE; ++j) {
-            for (int i = 1; i < GRID_SIZE; ++i) {
-                if (grid[i][j] != 0) {
-                    int k = i;
-                    while (k > 0 && grid[k - 1][j] == 0) {
-                        grid[k - 1][j] = grid[k][j];
-                        grid[k][j] = 0;
-                        k--;
-                        moved = true;
-                    }
-                }
-            }
-        }
-    }
-    else if (direction == 1) { // Down
-        for (int j = 0; j < GRID_SIZE; ++j) {
-            for (int i = GRID_SIZE - 2; i >= 0; --i) {
-                if (grid[i][j] != 0) {
-                    int k = i;
-                    while (k < GRID_SIZE - 1 && grid[k + 1][j] == 0) {
-                        grid[k + 1][j] = grid[k][j];
-                        grid[k][j] = 0;
-                        k++;
-                        moved = true;
-                    }
-                }
-            }
-        }
-    }
-    else if (direction == 2) { // Left
-        for (int i = 0; i < GRID_SIZE; ++i) {
-            for (int j = 1; j < GRID_SIZE; ++j) {
-                if (grid[i][j] != 0) {
-                    int k = j;
-                    while (k > 0 && grid[i][k - 1] == 0) {
-                        grid[i][k - 1] = grid[i][k];
-                        grid[i][k] = 0;
-                        k--;
-                        moved = true;
-                    }
-                }
-            }
-        }
-    }
-    else if (direction == 3) { // Right
-        for (int i = 0; i < GRID_SIZE; ++i) {
-            for (int j = GRID_SIZE - 2; j >= 0; --j) {
-                if (grid[i][j] != 0) {
-                    int k = j;
-                    while (k < GRID_SIZE - 1 && grid[i][k + 1] == 0) {
-                        grid[i][k + 1] = grid[i][k];
-                        grid[i][k] = 0;
-                        k++;
-                        moved = true;
-                    }
-                }
-            }
-        }
-    }
-    return moved;
-}
-
-bool mergeTiles(std::vector<std::vector<int>>& grid, int direction) {
     bool merged = false;
-    if (direction == 0) { // Up
-        for (int j = 0; j < GRID_SIZE; ++j) {
-            for (int i = 1; i < GRID_SIZE; ++i) {
-                if (grid[i][j] != 0 && grid[i][j] == grid[i - 1][j]) {
-                    grid[i - 1][j] *= 2;
-                    grid[i][j] = 0;
-                    merged = true;
-                }
-            }
-        }
-    }
-    else if (direction == 1) { // Down
-        for (int j = 0; j < GRID_SIZE; ++j) {
-            for (int i = GRID_SIZE - 2; i >= 0; --i) {
-                if (grid[i][j] != 0 && grid[i][j] == grid[i + 1][j]) {
-                    grid[i + 1][j] *= 2;
-                    grid[i][j] = 0;
-                    merged = true;
-                }
-            }
-        }
-    }
-    else if (direction == 2) { // Left
+
+    auto slideAndMerge = [&](std::vector<int>& line) {
+        std::vector<int> newLine(GRID_SIZE, 0);
+        int lastIndex = -1;
+
         for (int i = 0; i < GRID_SIZE; ++i) {
-            for (int j = 1; j < GRID_SIZE; ++j) {
-                if (grid[i][j] != 0 && grid[i][j] == grid[i][j - 1]) {
-                    grid[i][j - 1] *= 2;
-                    grid[i][j] = 0;
+            if (line[i] != 0) {
+                int value = line[i];
+                if (lastIndex != -1 && newLine[lastIndex] == value) {
+                    newLine[lastIndex] *= 2;
+                    line[i] = 0;
                     merged = true;
+                }
+                else {
+                    lastIndex = (lastIndex + 1);
+                    newLine[lastIndex] = value;
                 }
             }
         }
-    }
-    else if (direction == 3) { // Right
+
+        if (newLine != line) {
+            moved = true;
+        }
+        line = newLine;
+        };
+
+    auto processGrid = [&](bool reverse) {
         for (int i = 0; i < GRID_SIZE; ++i) {
-            for (int j = GRID_SIZE - 2; j >= 0; --j) {
-                if (grid[i][j] != 0 && grid[i][j] == grid[i][j + 1]) {
-                    grid[i][j + 1] *= 2;
-                    grid[i][j] = 0;
-                    merged = true;
-                }
+            std::vector<int> line(GRID_SIZE);
+            for (int j = 0; j < GRID_SIZE; ++j) {
+                if (direction == 0) line[j] = grid[j][i];
+                if (direction == 1) line[j] = grid[GRID_SIZE - 1 - j][i];
+                if (direction == 2) line[j] = grid[i][j];
+                if (direction == 3) line[j] = grid[i][GRID_SIZE - 1 - j];
+            }
+
+            slideAndMerge(line);
+
+            for (int j = 0; j < GRID_SIZE; ++j) {
+                if (direction == 0) grid[j][i] = line[j];
+                if (direction == 1) grid[GRID_SIZE - 1 - j][i] = line[j];
+                if (direction == 2) grid[i][j] = line[j];
+                if (direction == 3) grid[i][GRID_SIZE - 1 - j] = line[j];
             }
         }
-    }
-    return merged;
+        };
+
+    processGrid(direction == 1 || direction == 3);
+    return moved || merged;
 }
 
 bool isGameOver(const std::vector<std::vector<int>>& grid) {
