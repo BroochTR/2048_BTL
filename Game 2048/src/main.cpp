@@ -7,14 +7,13 @@
 #include <string>
 #include <unordered_map>
 
-// Constants
-const int GRID_SIZE = 6;
+const int GRID_SIZE = 5;
 const int TILE_SIZE = 100;
-const int WINDOW_WIDTH = GRID_SIZE * TILE_SIZE;
-const int WINDOW_HEIGHT = GRID_SIZE * TILE_SIZE;
 const int TILE_PADDING = 10;
-
-// Function prototypes
+const int BORDER_THICKNESS = 10; // Uniform border thickness
+const int EXTRA_WIDTH = 250; // Extra width for additional area
+const int WINDOW_WIDTH = GRID_SIZE * TILE_SIZE + EXTRA_WIDTH;
+const int WINDOW_HEIGHT = GRID_SIZE * TILE_SIZE;
 void initializeGrid(std::vector<std::vector<int>>& grid);
 void renderGrid(SDL_Renderer* renderer, const std::vector<std::vector<int>>& grid, std::unordered_map<int, SDL_Texture*>& tileTextures);
 void spawnTile(std::vector<std::vector<int>>& grid);
@@ -52,13 +51,10 @@ int main(int argc, char* argv[]) {
     }
 
     std::unordered_map<int, SDL_Texture*> tileTextures = loadTileTextures(renderer);
-
     std::vector<std::vector<int>> grid(GRID_SIZE, std::vector<int>(GRID_SIZE, 0));
     initializeGrid(grid);
-
     bool quit = false;
     SDL_Event e;
-
     while (!quit) {
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
@@ -88,19 +84,26 @@ int main(int argc, char* argv[]) {
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
-        renderGrid(renderer, grid, tileTextures);
-        SDL_RenderPresent(renderer);
 
+        SDL_Rect extraArea = { GRID_SIZE * TILE_SIZE, 0, EXTRA_WIDTH, WINDOW_HEIGHT };
+        SDL_SetRenderDrawColor(renderer, 253, 222, 179, 255); // #fddeb3
+        SDL_RenderFillRect(renderer, &extraArea);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White color for the border
+        SDL_Rect extraAreaBorder = { GRID_SIZE * TILE_SIZE - BORDER_THICKNESS, -BORDER_THICKNESS, EXTRA_WIDTH + BORDER_THICKNESS, WINDOW_HEIGHT + BORDER_THICKNESS };
+        SDL_RenderDrawRect(renderer, &extraAreaBorder);
+        renderGrid(renderer, grid, tileTextures);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White color for the border
+        SDL_Rect gridRect = { 0, 0, GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE };
+        SDL_RenderDrawRect(renderer, &gridRect);
+        SDL_RenderPresent(renderer);
         if (isGameOver(grid)) {
             std::cout << "Game Over!" << std::endl;
             quit = true;
         }
     }
-
     for (auto& pair : tileTextures) {
         SDL_DestroyTexture(pair.second);
     }
-
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     IMG_Quit();
@@ -108,7 +111,6 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
 SDL_Texture* loadTexture(const std::string& path, SDL_Renderer* renderer) {
     SDL_Texture* texture = IMG_LoadTexture(renderer, path.c_str());
     if (!texture) {
@@ -116,7 +118,6 @@ SDL_Texture* loadTexture(const std::string& path, SDL_Renderer* renderer) {
     }
     return texture;
 }
-
 std::unordered_map<int, SDL_Texture*> loadTileTextures(SDL_Renderer* renderer) {
     std::unordered_map<int, SDL_Texture*> textures;
     textures[2] = loadTexture("E:/Test Project/images/2.png", renderer);
@@ -132,31 +133,30 @@ std::unordered_map<int, SDL_Texture*> loadTileTextures(SDL_Renderer* renderer) {
     textures[2048] = loadTexture("E:/Test Project/images/2048.png", renderer);
     return textures;
 }
-
 void initializeGrid(std::vector<std::vector<int>>& grid) {
     std::srand(std::time(nullptr));
     spawnTile(grid);
     spawnTile(grid);
 }
-
 void renderGrid(SDL_Renderer* renderer, const std::vector<std::vector<int>>& grid, std::unordered_map<int, SDL_Texture*>& tileTextures) {
     for (int i = 0; i < GRID_SIZE; ++i) {
         for (int j = 0; j < GRID_SIZE; ++j) {
             int value = grid[i][j];
-            SDL_Rect tileRect = { j * TILE_SIZE + TILE_PADDING, i * TILE_SIZE + TILE_PADDING, TILE_SIZE - TILE_PADDING, TILE_SIZE - TILE_PADDING };
-
+            SDL_Rect tileRect = { j * TILE_SIZE + TILE_PADDING, i * TILE_SIZE + TILE_PADDING, TILE_SIZE - TILE_PADDING * 2, TILE_SIZE - TILE_PADDING * 2 };
             if (value != 0) {
                 SDL_Texture* texture = tileTextures[value];
                 SDL_RenderCopy(renderer, texture, nullptr, &tileRect);
             }
             else {
-                SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // Background color for empty tiles
+                SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); 
                 SDL_RenderFillRect(renderer, &tileRect);
             }
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
+            SDL_Rect innerBorderRect = { j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE };
+            SDL_RenderDrawRect(renderer, &innerBorderRect);
         }
     }
 }
-
 void spawnTile(std::vector<std::vector<int>>& grid) {
     int x, y;
     do {
@@ -166,7 +166,6 @@ void spawnTile(std::vector<std::vector<int>>& grid) {
 
     grid[x][y] = (std::rand() % 10 == 0) ? 4 : 2;
 }
-
 bool moveAndMergeTiles(std::vector<std::vector<int>>& grid, int direction) {
     bool moved = false;
     bool merged = false;
@@ -192,30 +191,27 @@ bool moveAndMergeTiles(std::vector<std::vector<int>>& grid, int direction) {
 
         if (newLine != line) {
             moved = true;
-        }
+              }
         line = newLine;
         };
-
     auto processGrid = [&](bool reverse) {
         for (int i = 0; i < GRID_SIZE; ++i) {
             std::vector<int> line(GRID_SIZE);
             for (int j = 0; j < GRID_SIZE; ++j) {
-                if (direction == 0) line[j] = grid[j][i];
-                if (direction == 1) line[j] = grid[GRID_SIZE - 1 - j][i];
-                if (direction == 2) line[j] = grid[i][j];
-                if (direction == 3) line[j] = grid[i][GRID_SIZE - 1 - j];
+                if (direction == 0) line[j] = grid[j][i];       
+                if (direction == 1) line[j] = grid[GRID_SIZE - 1 - j][i]; 
+                if (direction == 2) line[j] = grid[i][j];        // Left
+                if (direction == 3) line[j] = grid[i][GRID_SIZE - 1 - j]; 
             }
-
             slideAndMerge(line);
-
             for (int j = 0; j < GRID_SIZE; ++j) {
-                if (direction == 0) grid[j][i] = line[j];
-                if (direction == 1) grid[GRID_SIZE - 1 - j][i] = line[j];
-                if (direction == 2) grid[i][j] = line[j];
-                if (direction == 3) grid[i][GRID_SIZE - 1 - j] = line[j];
+                if (direction == 0) grid[j][i] = line[j];       
+                if (direction == 1) grid[GRID_SIZE - 1 - j][i] = line[j]; 
+                if (direction == 2) grid[i][j] = line[j];     
+                if (direction == 3) grid[i][GRID_SIZE - 1 - j] = line[j]; 
             }
         }
-        };
+     };
 
     processGrid(direction == 1 || direction == 3);
     return moved || merged;
@@ -231,4 +227,3 @@ bool isGameOver(const std::vector<std::vector<int>>& grid) {
     }
     return true;
 }
-
